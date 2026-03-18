@@ -7,48 +7,45 @@ import extra_streamlit_components as stx
 # הגדרות דף
 st.set_page_config(page_title="דשבורד התרעות", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS "אלים" ליישור RTL מלא של כל רכיבי ה-Markdown והכותרות
+# CSS יציב ונקי ליישור לימין (RTL) ועיצוב קוביות
 st.markdown("""
     <style>
-    /* יישור כללי של האפליקציה */
-    [data-testid="stAppViewContainer"], .main {
+    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700&display=swap');
+    
+    html, body, [data-testid="stAppViewContainer"] {
+        font-family: 'Assistant', sans-serif;
         direction: rtl;
         text-align: right;
     }
 
-    /* הכרחת יישור לימין לכל הכותרות והטקסטים */
-    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown {
+    /* יישור RTL לכל הכותרות והטקסטים */
+    h1, h2, h3, h4, h5, h6, p, label, .stMarkdown {
         text-align: right !important;
         direction: rtl !important;
     }
 
-    /* טיפול ספציפי בכותרות של דשבורד */
-    [data-testid="stHeader"] {
-        direction: rtl;
+    /* עיצוב כרטיסי המטריקות (Custom Metrics) */
+    .metric-card {
+        background: var(--secondary-background-color);
+        border: 1px solid var(--divider-color);
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .metric-label {
+        font-size: 1.1rem;
+        color: #888;
+        margin-bottom: 0.5rem;
+    }
+    .metric-value {
+        font-size: 2.2rem;
+        font-weight: bold;
+        color: #FF4B4B;
     }
 
-    /* יישור רכיב ה-Metric (המספרים הגדולים) */
-    [data-testid="stMetricLabel"], [data-testid="stMetricValue"] {
-        text-align: right !important;
-        direction: rtl !important;
-        justify-content: flex-start !important;
-    }
-
-    /* יישור כרטיסי המטריקות */
-    [data-testid="stMetric"] {
-        border: 1px solid #f0f2f6;
-        padding: 15px;
-        border-radius: 10px;
-        background-color: #fafafa;
-        text-align: right;
-    }
-
-    /* יישור הטבלה והגרף */
-    [data-testid="stDataFrame"], .plotly-graph-div {
-        direction: rtl;
-    }
-
-    /* ביטול השוליים המיותרים בשמאל שנוצרים בגלל ה-LTR המקורי */
+    /* יישור עמודות */
     .stHorizontalBlock {
         direction: rtl;
     }
@@ -57,7 +54,7 @@ st.markdown("""
 
 cookie_manager = stx.CookieManager()
 
-# כותרת - שים לב לשימוש ב-Dashboard בלי א'
+# כותרת (בלי ה-א' כפי שביקשת)
 st.title("🛡️ דשבורד התרעות בזמן אמת")
 st.markdown("---")
 
@@ -73,22 +70,20 @@ def load_data():
 try:
     df, all_cities = load_data()
 
-    # ניהול עוגיות
+    # שליפת העוגייה
     saved_cities = cookie_manager.get(cookie="selected_cities")
     if saved_cities is None: saved_cities = []
 
-    # בחירת יישובים
-    with st.expander("🔍 הגדרות חיפוש ובחירת יישובים", expanded=not bool(saved_cities)):
+    with st.expander("🔍 הגדרות בחירה", expanded=not bool(saved_cities)):
         selected_cities = st.multiselect(
-            "הוסף יישובים להשוואה:",
+            "יישובים להשוואה:",
             options=all_cities,
             default=saved_cities
         )
         if selected_cities != saved_cities:
-            cookie_manager.set("selected_cities", selected_cities, key="save_cities_v3")
+            cookie_manager.set("selected_cities", selected_cities, key="save_revert_v1")
 
     if selected_cities:
-        # עיבוד נתונים עם סינון כפילויות (Deduplication)
         thirty_days_ago = datetime.now() - timedelta(days=30)
         mask = (df['data'].isin(selected_cities)) & (df['alertDate'] >= thirty_days_ago) & (df['category'] == 1)
         clean_df = df.loc[mask].copy()
@@ -98,39 +93,34 @@ try:
         counts = clean_df['data'].value_counts().reindex(selected_cities, fill_value=0).reset_index()
         counts.columns = ['יישוב', 'מספר אזעקות']
 
-        # שורת מטריקות
+        # הצגת מטריקות בגרסה היציבה
         st.subheader("📊 תמונת מצב")
         cols = st.columns(len(selected_cities))
         for i, city in enumerate(selected_cities):
             city_count = counts[counts['יישוב'] == city]['מספר אזעקות'].values[0]
-            cols[i].metric(label=city, value=int(city_count))
+            with cols[i]:
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">{city}</div>
+                        <div class="metric-value">{int(city_count)}</div>
+                    </div>
+                """, unsafe_allow_html=True)
 
-        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
 
-        # גרף וטבלה
         col_graph, col_table = st.columns([2, 1])
-
         with col_graph:
             fig = px.bar(counts, x='יישוב', y='מספר אזעקות', 
                          title="השוואת אזעקות (30 ימים אחרונים)",
-                         color='מספר אזעקות', 
-                         color_continuous_scale='Reds',
-                         template='plotly_white')
-            
-            fig.update_layout(
-                xaxis_title="יישוב", 
-                yaxis_title="כמות אזעקות",
-                title_x=1,
-                font=dict(size=14)
-            )
-            st.plotly_chart(fig, use_container_width=True)
+                         color='מספר אזעקות', color_continuous_scale='Reds')
+            fig.update_layout(xaxis_title=None, yaxis_title="כמות אזעקות", title_x=1)
+            st.plotly_chart(fig, use_container_width=True, theme="streamlit")
 
         with col_table:
             st.subheader("📝 פירוט מלא")
             st.dataframe(counts, hide_index=True, use_container_width=True)
-
     else:
-        st.info("אנא בחר יישובים מתיבת החיפוש למעלה.")
+        st.info("בחר יישובים למעלה.")
 
 except Exception as e:
     st.error(f"שגיאה: {e}")
