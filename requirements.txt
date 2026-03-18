@@ -5,3 +5,4 @@ requests
 python-bidi
 arabic-reshaper
 extra-streamlit-components
+plotly
