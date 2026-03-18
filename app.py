@@ -7,7 +7,7 @@ import extra_streamlit_components as stx
 # הגדרות דף
 st.set_page_config(page_title="דשבורד התרעות", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS יציב ונקי ליישור לימין (RTL) ועיצוב קוביות
+# CSS מעודכן עם גובה קבוע לקוביות למראה אחיד
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700&display=swap');
@@ -24,23 +24,37 @@ st.markdown("""
         direction: rtl !important;
     }
 
-    /* עיצוב כרטיסי המטריקות (Custom Metrics) */
+    /* עיצוב כרטיסי המטריקות - עם גובה קבוע */
     .metric-card {
         background: var(--secondary-background-color);
         border: 1px solid var(--divider-color);
-        padding: 1.5rem;
+        padding: 1.2rem;
         border-radius: 15px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         text-align: center;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
+        
+        /* התיקון כאן: גובה קבוע כדי שכל הקוביות יהיו זהות */
+        min-height: 140px; 
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
     }
+    
     .metric-label {
-        font-size: 1.1rem;
+        font-size: 1rem;
         color: #888;
-        margin-bottom: 0.5rem;
+        line-height: 1.2;
+        margin-bottom: 8px;
+        min-height: 2.4em; /* מבטיח מקום ל-2 שורות טקסט גם אם יש רק אחת */
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
+    
     .metric-value {
-        font-size: 2.2rem;
+        font-size: 2rem;
         font-weight: bold;
         color: #FF4B4B;
     }
@@ -54,7 +68,6 @@ st.markdown("""
 
 cookie_manager = stx.CookieManager()
 
-# כותרת (בלי ה-א' כפי שביקשת)
 st.title("🛡️ דשבורד התרעות בזמן אמת")
 st.markdown("---")
 
@@ -70,7 +83,6 @@ def load_data():
 try:
     df, all_cities = load_data()
 
-    # שליפת העוגייה
     saved_cities = cookie_manager.get(cookie="selected_cities")
     if saved_cities is None: saved_cities = []
 
@@ -81,7 +93,7 @@ try:
             default=saved_cities
         )
         if selected_cities != saved_cities:
-            cookie_manager.set("selected_cities", selected_cities, key="save_revert_v1")
+            cookie_manager.set("selected_cities", selected_cities, key="save_v_final_aligned")
 
     if selected_cities:
         thirty_days_ago = datetime.now() - timedelta(days=30)
@@ -93,7 +105,6 @@ try:
         counts = clean_df['data'].value_counts().reindex(selected_cities, fill_value=0).reset_index()
         counts.columns = ['יישוב', 'מספר אזעקות']
 
-        # הצגת מטריקות בגרסה היציבה
         st.subheader("📊 תמונת מצב")
         cols = st.columns(len(selected_cities))
         for i, city in enumerate(selected_cities):
